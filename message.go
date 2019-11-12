@@ -14,6 +14,11 @@ type CreateMessageType struct {
 	Message string
 }
 
+type WebsocketMessageType struct {
+	MessageType string
+	MessageContent interface{}
+}
+
 func CreateMessageRoute(c *gin.Context) {
 	var form CreateMessageType
 
@@ -38,8 +43,6 @@ func CreateMessageRoute(c *gin.Context) {
 
 	var foundChannel ChannelSchema
 
-	fmt.Println(convertID)
-
 	err = Channels.FindOne(context.TODO(), bson.D{{"_id", convertID}}).Decode(&foundChannel)
 
 	if err != nil {
@@ -49,6 +52,18 @@ func CreateMessageRoute(c *gin.Context) {
 
 	newMessage := MessageSchema{primitive.NewObjectID(), convertID, time.Now(), form.Message}
 
+	go (func() {
+		message := WebsocketMessageType{"NEW_MESSAGE", newMessage}
+
+		clients := make([]string, 0)
+
+		for key, _ := range foundChannel.PrivateKeys {
+			clients = append(clients, key)
+		}
+
+		HubGlob.createMessage <- CreatedMessageStruct{message:&message, clients: &clients}
+	})()
+
 	_, err = Messages.InsertOne(context.TODO(), newMessage)
 
 	if err != nil {
@@ -57,4 +72,43 @@ func CreateMessageRoute(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "Message sent successfully", "inserted": newMessage})
+}
+
+func GetMessagesRoute(c * gin.Context) {
+	idQuery := c.Param("channelID")
+
+	if idQuery == "" {
+		c.JSON(400, gin.H{"message": "You must send a channelID in the path param"})
+		return
+	}
+
+	id, err := primitive.ObjectIDFromHex(idQuery)
+
+	if err != nil {
+		c.JSON(400, gin.H{"message": "Could not parse id into an ObjectID", "err": err})
+		return
+	}
+
+	messages := make([]MessageSchema, 0)
+
+	cursor, err := Messages.Find(context.TODO(), bson.M{"channelid": id})
+
+	if err != nil {
+		c.JSON(500, gin.H{"message": "Could not query messages", "err": err})
+		return
+	}
+
+	for cursor.Next(context.Background()) {
+
+		message := MessageSchema{}
+		err := cursor.Decode(&message)
+		if err != nil {
+			//handle err
+			fmt.Println("err", err)
+		}
+
+		messages = append(messages, message)
+	}
+
+	c.JSON(200, gin.H{"message": "Success", "messages": messages})
 }

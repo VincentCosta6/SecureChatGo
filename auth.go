@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -14,32 +13,48 @@ import (
 
 var jwtKey = []byte("my_secret_key")
 
-func RegisterRoute(c *gin.Context) {
-	username := c.PostForm("username")
-	password := c.PostForm("password")
-	publicKey := c.PostForm("publicKey")
-	protectedKey := c.PostForm("protectedKey")
+type RegisterStruct struct {
+	Username string
+	Password string
+	PublicKey string
+	ProtectedKey string
+}
 
-	if publicKey == "" {
+func RegisterRoute(c *gin.Context) {
+	var form RegisterStruct
+
+	c.BindJSON(&form)
+
+	if form.Username == "" {
+		c.JSON(400, gin.H{"message": "You must send a username"})
+		return
+	}
+
+	if form.Password == "" {
+		c.JSON(400, gin.H{"message": "You must send a password"})
+		return
+	}
+
+	if form.PublicKey == "" {
 		c.JSON(400, gin.H{"message": "You must send a public key"})
 		return
 	}
 
-	if protectedKey == "" {
+	if form.ProtectedKey == "" {
 		c.JSON(400, gin.H{"message": "You must send a protected key"})
 		return
 	}
 
 	var foundUser UserSchema
 
-	err := Users.FindOne(context.TODO(), bson.D{{"username", username}}).Decode(&foundUser)
+	err := Users.FindOne(context.TODO(), bson.D{{"username", form.Username}}).Decode(&foundUser)
 
 	if foundUser != (UserSchema{}) {
 		c.JSON(400, gin.H{ "message": "Username already exists" })
 		return
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), 13)
+	hash, err := bcrypt.GenerateFromPassword([]byte(form.Password), 17)
 
 	if err != nil {
 		c.JSON(400, gin.H{ "message": "Fatal error hashing password", "err": err })
@@ -48,9 +63,9 @@ func RegisterRoute(c *gin.Context) {
 
 	var hashedPassword = string(hash)
 
-	ourUser := UserSchema{primitive.NewObjectID(), username, hashedPassword, publicKey, protectedKey}
+	ourUser := UserSchema{primitive.NewObjectID(), form.Username, hashedPassword, form.PublicKey, form.ProtectedKey}
 
-	insertResult, err := Users.InsertOne(context.TODO(), ourUser)
+	_, err = Users.InsertOne(context.TODO(), ourUser)
 
 	if err != nil {
 		c.JSON(400, gin.H{ "message": "Error inserting user into db", "err": err })
@@ -64,23 +79,29 @@ func RegisterRoute(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Account created successfully", "insertedID": insertResult.InsertedID, "token": tokenString})
+	c.JSON(200, gin.H{"message": "Account created successfully", "user": ourUser, "token": tokenString})
+}
+
+type LoginStruct struct {
+	Username string
+	Password string
 }
 
 func LoginRoute(c *gin.Context) {
-	username := c.PostForm("username")
-	password := c.PostForm("password")
+	var form LoginStruct
+
+	c.BindJSON(&form)
 
 	var foundUser UserSchema
 
-	err := Users.FindOne(context.TODO(), bson.D{{"username", username}}).Decode(&foundUser)
+	err := Users.FindOne(context.TODO(), bson.D{{"username", form.Username}}).Decode(&foundUser)
 
 	if err != nil {
 		c.JSON(400, gin.H{ "message": "Username not found" })
 		return
 	}
 
-	err = bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(password))
+	err = bcrypt.CompareHashAndPassword([]byte(foundUser.Password), []byte(form.Password))
 
 	if err != nil {
 		c.JSON(400, gin.H{ "message": "Password is incorrect" })
@@ -94,7 +115,7 @@ func LoginRoute(c *gin.Context) {
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "Login successful", "token": tokenString})
+	c.JSON(200, gin.H{"message": "Login successful", "token": tokenString, "user": foundUser})
 }
 
 func GetSessionRoute(c *gin.Context) {
@@ -112,7 +133,7 @@ type Claims struct {
 
 func EnsureAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tokenString := c.Request.Header.Get("token")
+		tokenString := c.Request.Header.Get("Authorization")
 
 		if tokenString == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "No JWT token found"})
@@ -130,8 +151,6 @@ func EnsureAuth() gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Your token is invalid"})
 				return
 			}
-
-			fmt.Println(err)
 
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Bad request", "err": err})
 			return

@@ -7,10 +7,10 @@ import (
 
 type UserSchema struct {
 	ID primitive.ObjectID `bson:"_id" json:"_id,omitempty"`
-	Username string
-	Password string
-	PublicKey string
-	ProtectedKey string // This is the users private key but it is encrypted with their password using AES
+	Username string `json:"username""`
+	Password string `json:"password""`
+	PublicKey string `json:"publicKey""`
+	ProtectedKey string `json:"protectedKey""` // This is the users private key but it is encrypted with their password using AES
 }
 
 type ChannelSchema struct {

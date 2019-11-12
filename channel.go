@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-	"strings"
-	"unicode"
 )
 
 type CreateType struct {
@@ -31,25 +29,25 @@ func CreateChannelRoute(c *gin.Context) {
 
 	newChannel := ChannelSchema{primitive.NewObjectID(), form.Name, form.PrivateKeys}
 
+	go(func() {
+		message := WebsocketMessageType{"NEW_CHANNEL", newChannel}
+
+		clients := make([]string, 0)
+
+		for key, _ := range form.PrivateKeys {
+			clients = append(clients, key)
+		}
+
+		HubGlob.createMessage <- CreatedMessageStruct{message: &message, clients: &clients}
+	})()
+
 	_, err := Channels.InsertOne(context.TODO(), newChannel)
 
 	if err != nil {
 		fmt.Println("Fatal error while creating channel:", err)
-		c.JSON(200, gin.H{"message": "Failed to create channel", "err": err})
+		c.JSON(500, gin.H{"message": "Failed to create channel", "err": err})
 		return
 	}
 
 	c.JSON(200, gin.H{"message": "Channel has been created", "channel": newChannel})
-}
-
-func removeSpaces(str *string) {
-	var b strings.Builder
-	b.Grow(len(*str))
-	for _, ch := range *str {
-		if !unicode.IsSpace(ch) {
-			b.WriteRune(ch)
-		}
-	}
-
-	*str = b.String()
 }
