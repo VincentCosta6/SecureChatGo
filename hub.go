@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/mitchellh/mapstructure"
 )
 
 type Hub struct {
@@ -40,8 +41,11 @@ func (h *Hub) run() {
 			if _, ok := h.clients[client]; ok {
 				delete(h.clients, client)
 				delete(h.clientMap, client.user.User.ID.Hex())
+				fmt.Println(client.send)
 				close(client.send)
 			}
+		case message := <- h.receive:
+			handleReceive(h, message)
 		case message := <-h.createMessage:
 			bytes, err := json.Marshal(message.message)
 
@@ -66,3 +70,36 @@ func (h *Hub) run() {
 	}
 }
 
+type MESSAGE struct {
+	Type string
+	Content map[string]interface{}
+}
+
+type IS_TYPING struct {
+	ChannelID string
+	Users []string
+	WhoTypingID string
+	WhoTypingUsername string
+}
+
+func handleReceive(h *Hub, message []byte) {
+	var parsed MESSAGE
+	json.Unmarshal(message, &parsed)
+
+	switch parsed.Type {
+	case "IS_TYPING":
+		var content IS_TYPING
+
+		mapstructure.Decode(parsed.Content, &content)
+
+		message := WebsocketMessageType{"IS_TYPING", &content}
+
+		clientsCopy := content.Users[:]
+
+		content.Users = []string{}
+
+		go (func() {
+			h.createMessage <- CreatedMessageStruct{message:&message, clients: &clientsCopy}
+		})()
+	}
+}

@@ -39,7 +39,6 @@ func FindLikeUsers(c *gin.Context) {
 		}
 
 		user.Password = ""
-		user.ProtectedKey = ""
 
 		users = append(users, user)
 	}
@@ -75,11 +74,6 @@ func FindChannels(c *gin.Context) {
 			//handle err
 			fmt.Println("err", err)
 		}
-
-		privateKey := channel.PrivateKeys[user.ID.Hex()]
-
-		channel.PrivateKeys = make(map[string]string)
-		channel.PrivateKeys[user.ID.Hex()] = privateKey
 
 		channels = append(channels, channel)
 	}

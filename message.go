@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"net/http"
+	"path/filepath"
 	"time"
 )
 
@@ -57,7 +59,7 @@ func CreateMessageRoute(c *gin.Context) {
 
 		clients := make([]string, 0)
 
-		for key, _ := range foundChannel.PrivateKeys {
+		for key := range foundChannel.PrivateKeys {
 			clients = append(clients, key)
 		}
 
@@ -111,4 +113,30 @@ func GetMessagesRoute(c * gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "Success", "messages": messages})
+}
+
+func FileUploadRoute(c * gin.Context) {
+	fmt.Println("Here")
+
+	shasum := c.PostForm("shasum")
+	/*channelID := c.PostForm("channelID")
+	size := c.PostForm("size")
+	name := c.PostForm("name")
+	extension := c.PostForm("extension")
+	author := c.PostForm("author")*/
+
+	file, err := c.FormFile("file")
+
+	if err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("get form err: %s", err.Error()))
+		return
+	}
+
+	filename := "./files/" + filepath.Base(shasum)
+	if err := c.SaveUploadedFile(file, filename); err != nil {
+		c.String(http.StatusBadRequest, fmt.Sprintf("upload file err: %s", err.Error()))
+		return
+	}
+
+	c.String(http.StatusOK, fmt.Sprintf("File %s uploaded", file.Filename))
 }

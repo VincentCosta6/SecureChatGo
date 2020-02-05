@@ -19,6 +19,7 @@ var (
 	Users    *mongo.Collection
 	Channels *mongo.Collection
 	ChannelUsers *mongo.Collection
+	FileMetaData *mongo.Collection
 )
 
 func main() {
@@ -49,6 +50,7 @@ func setupDB() {
 	Users = client.Database("GoTest").Collection("users")
 	Channels = client.Database("GoTest").Collection("channels")
 	ChannelUsers = client.Database("GoTest").Collection("channelusers")
+	FileMetaData = client.Database("GoTest").Collection("filedata")
 }
 
 var HubGlob = newHub()
@@ -63,12 +65,16 @@ func initRouter() {
 
 	pingStatus := bson.M{"msg": "healthy"}
 
+	r.GET("/", func(c *gin.Context) {
+		http.ServeFile(c.Writer, c.Request, "./website.html")
+	})
+
 	r.GET("/ping", func (c *gin.Context) {
 		c.JSON(200, pingStatus)
 	})
 
-	r.GET("/download/windows/SecureChat-Setup-0.5.2.exe", func(c *gin.Context) {
-		http.ServeFile(c.Writer, c.Request, "./SecureChat Setup 0.5.2.exe")
+	r.GET("/download/windows/SecureChat-Setup-0.5.8.exe", func(c *gin.Context) {
+		http.ServeFile(c.Writer, c.Request, "./SecureChat Setup 0.5.8.exe")
 	})
 
 	r.GET("/ws", func(c *gin.Context) {
@@ -106,10 +112,13 @@ func initRouter() {
 	r.GET("/get/session", EnsureAuth(), GetSessionRoute)
 
 	r.POST("/channel/create", EnsureAuth(), CreateChannelRoute)
+	r.POST("/channel/add/user", EnsureAuth(), AddUserRoute)
 	r.GET("/channels/mine", EnsureAuth(), FindChannels)
 
 	r.POST("/message/create", EnsureAuth(), CreateMessageRoute)
 	r.GET("/channels/messages/:channelID", EnsureAuth(), GetMessagesRoute)
+	r.POST("/upload", EnsureAuth(), FileUploadRoute)
+	r.Static("/download-file", "./files")
 
 	r.RunTLS(":443", "./server.pem", "./server.key")
 

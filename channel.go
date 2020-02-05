@@ -4,11 +4,17 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type CreateType struct {
 	Name string
+	PrivateKeys map[string]string
+}
+
+type AddType struct {
+	ChannelID string
 	PrivateKeys map[string]string
 }
 
@@ -34,7 +40,7 @@ func CreateChannelRoute(c *gin.Context) {
 
 		clients := make([]string, 0)
 
-		for key, _ := range form.PrivateKeys {
+		for key := range form.PrivateKeys {
 			clients = append(clients, key)
 		}
 
@@ -50,4 +56,46 @@ func CreateChannelRoute(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "Channel has been created", "channel": newChannel})
+}
+
+func AddUserRoute(c *gin.Context) {
+	var form AddType
+
+	c.BindJSON(&form)
+
+	if form.ChannelID == "" {
+		c.JSON(400, gin.H{"message": "You must send the id of the channel"})
+		fmt.Println("No id")
+		return
+	}
+
+	if len(form.PrivateKeys) == 0 {
+		c.JSON(400, gin.H{"message": "You must send a map of the privateKeys and who they belong to"})
+		fmt.Println("No keys")
+		return
+	}
+
+	id, err := primitive.ObjectIDFromHex(form.ChannelID)
+
+	if err != nil {
+		c.JSON(400, gin.H{"message": "Id is invalid and not a Mongo ID"})
+		fmt.Println("No id")
+		return
+	}
+
+	converted := make(map[string]string)
+
+	for k, v := range form.PrivateKeys {
+		converted["privatekeys." + k] = v
+	}
+
+	_, err = Channels.UpdateOne(context.TODO(), bson.D{{ "_id", id }}, bson.D{{ "$set", converted }})
+
+	if err != nil {
+		fmt.Println(err)
+		c.JSON(500, gin.H{"message": "Error", "err": err})
+		return
+	}
+
+	c.JSON(200, gin.H{"message": "Users have been added"})
 }

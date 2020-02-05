@@ -17,7 +17,6 @@ type RegisterStruct struct {
 	Username string
 	Password string
 	PublicKey string
-	ProtectedKey string
 }
 
 func RegisterRoute(c *gin.Context) {
@@ -40,11 +39,6 @@ func RegisterRoute(c *gin.Context) {
 		return
 	}
 
-	if form.ProtectedKey == "" {
-		c.JSON(400, gin.H{"message": "You must send a protected key"})
-		return
-	}
-
 	var foundUser UserSchema
 
 	err := Users.FindOne(context.TODO(), bson.D{{"username", form.Username}}).Decode(&foundUser)
@@ -63,7 +57,7 @@ func RegisterRoute(c *gin.Context) {
 
 	var hashedPassword = string(hash)
 
-	ourUser := UserSchema{primitive.NewObjectID(), form.Username, hashedPassword, form.PublicKey, form.ProtectedKey}
+	ourUser := UserSchema{primitive.NewObjectID(), form.Username, hashedPassword, form.PublicKey}
 
 	_, err = Users.InsertOne(context.TODO(), ourUser)
 
@@ -172,7 +166,6 @@ func EnsureAuth() gin.HandlerFunc {
 
 func createJWTTokenString(user UserSchema, ) (string, error) {
 	user.PublicKey = ""
-	user.ProtectedKey = ""
 	claims := &Claims{
 		User: user,
 		StandardClaims: jwt.StandardClaims{

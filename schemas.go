@@ -10,7 +10,6 @@ type UserSchema struct {
 	Username string `json:"username""`
 	Password string `json:"password""`
 	PublicKey string `json:"publicKey""`
-	ProtectedKey string `json:"protectedKey""` // This is the users private key but it is encrypted with their password using AES
 }
 
 type ChannelSchema struct {
