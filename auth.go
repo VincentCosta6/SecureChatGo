@@ -7,7 +7,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
-	"net/http"
 	"time"
 )
 
@@ -17,6 +16,11 @@ type RegisterStruct struct {
 	Username string
 	Password string
 	PublicKey string
+}
+
+type LoginStruct struct {
+	Username string
+	Password string
 }
 
 func RegisterRoute(c *gin.Context) {
@@ -76,11 +80,6 @@ func RegisterRoute(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Account created successfully", "user": ourUser, "token": tokenString})
 }
 
-type LoginStruct struct {
-	Username string
-	Password string
-}
-
 func LoginRoute(c *gin.Context) {
 	var form LoginStruct
 
@@ -118,50 +117,6 @@ func GetSessionRoute(c *gin.Context) {
 	user := userContext.(UserSchema)
 
 	c.JSON(200, gin.H{"user": user})
-}
-
-type Claims struct {
-	User UserSchema
-	jwt.StandardClaims
-}
-
-func EnsureAuth() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		tokenString := c.Request.Header.Get("Authorization")
-
-		if tokenString == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "No JWT token found"})
-			return
-		}
-
-		claims := &Claims{}
-
-		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-			return jwtKey, nil
-		})
-
-		if err != nil {
-			if err == jwt.ErrSignatureInvalid {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Your token is invalid"})
-				return
-			}
-
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Bad request", "err": err})
-			return
-		}
-
-		if !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Your token is invalid"})
-			return
-		}
-
-		claims.User.Password = "stop being snoopy"
-
-		c.Set("user", claims.User)
-		c.Set("token", token)
-
-		c.Next()
-	}
 }
 
 func createJWTTokenString(user UserSchema, ) (string, error) {

@@ -20,6 +20,18 @@ type CreatedMessageStruct struct {
 	clients *[]string // user ids
 }
 
+type MESSAGE struct {
+	Type string
+	Content map[string]interface{}
+}
+
+type IS_TYPING struct {
+	ChannelID string
+	Users []string
+	WhoTypingID string
+	WhoTypingUsername string
+}
+
 func newHub() *Hub {
 	return &Hub{
 		createMessage:  make(chan CreatedMessageStruct),
@@ -68,18 +80,6 @@ func (h *Hub) run() {
 			}
 		}
 	}
-}
-
-type MESSAGE struct {
-	Type string
-	Content map[string]interface{}
-}
-
-type IS_TYPING struct {
-	ChannelID string
-	Users []string
-	WhoTypingID string
-	WhoTypingUsername string
 }
 
 func handleReceive(h *Hub, message []byte) {
