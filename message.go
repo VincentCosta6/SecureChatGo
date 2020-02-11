@@ -16,6 +16,11 @@ type CreateMessageType struct {
 	Message string
 }
 
+type AddUser struct {
+	ChannelID primitive.ObjectID
+	NewUsers map[string]string
+}
+
 type WebsocketMessageType struct {
 	MessageType string
 	MessageContent interface{}

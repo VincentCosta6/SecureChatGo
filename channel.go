@@ -83,6 +83,35 @@ func AddUserRoute(c *gin.Context) {
 		return
 	}
 
+	var channel ChannelSchema
+
+	err = Channels.FindOne(context.TODO(), bson.D{{ "_id", id }}).Decode(&channel)
+
+	if err != nil {
+		c.JSON(400, gin.H{"message": "Couldnt find channel"})
+		fmt.Println("No id")
+		return
+	}
+
+	addUser := AddUser{ChannelID:id, NewUsers:form.PrivateKeys}
+
+	go(func() {
+		message := WebsocketMessageType{"ADD_USER", addUser}
+
+		clients := make([]string, 0)
+
+		for key := range form.PrivateKeys {
+			clients = append(clients, key)
+		}
+
+		for key := range channel.PrivateKeys {
+			clients = append(clients, key)
+		}
+
+		HubGlob.createMessage <- CreatedMessageStruct{message: &message, clients: &clients}
+
+	})()
+
 	converted := make(map[string]string)
 
 	for k, v := range form.PrivateKeys {

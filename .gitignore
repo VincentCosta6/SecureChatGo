@@ -1,4 +1,5 @@
 server.key
 server.pem
 SecureChat_Server.exe
-./build
+build/*
+files/*
