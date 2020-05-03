@@ -17,11 +17,14 @@ var (
 	Messages *mongo.Collection
 	Users    *mongo.Collection
 	Channels *mongo.Collection
-	ChannelUsers *mongo.Collection
-	FileMetaData *mongo.Collection
+	Subscription *mongo.Collection
 )
 
 func main() {
+	if InitializeKeys() == false {
+		log.Fatal("[Web Push] Fatal error occurred during initialization of keys")
+	}
+
 	setupDB()
 	initializeRouter()
 }
@@ -48,8 +51,7 @@ func setupDB() {
 	Messages = client.Database("GoTest").Collection("messages")
 	Users = client.Database("GoTest").Collection("users")
 	Channels = client.Database("GoTest").Collection("channels")
-	ChannelUsers = client.Database("GoTest").Collection("channelusers")
-	FileMetaData = client.Database("GoTest").Collection("filedata")
+	Subscription = client.Database("GoTest").Collection("subscriptions")
 }
 
 var HubGlob = newHub()
@@ -89,6 +91,8 @@ func initializeMainRoutes(r *gin.Engine) {
 	r.POST("/upload", EnsureAuth(), FileUploadRoute)
 	r.Static("/download-file", "./files")
 
+	r.POST("/subscription", EnsureAuth(), SubscribeRoute)
+
 	r.RunTLS(":443", "./server.pem", "./server.key")
 }
 
@@ -116,4 +120,7 @@ func initializeRouter() {
 		close(cleanupDone)
 	}()
 	<-cleanupDone
+}
+func initializePublicPrivateKeys() {
+
 }

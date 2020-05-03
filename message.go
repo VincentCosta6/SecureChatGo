@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/SherClockHolmes/webpush-go"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -64,6 +66,7 @@ func CreateMessageRoute(c *gin.Context) {
 
 		for key := range foundChannel.PrivateKeys {
 			clients = append(clients, key)
+			go sendNotif(key, newMessage)
 		}
 
 		HubGlob.createMessage <- CreatedMessageStruct{message:&message, clients: &clients}
@@ -77,6 +80,44 @@ func CreateMessageRoute(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "Message sent successfully", "inserted": newMessage})
+}
+
+func sendNotif(key string, newMessage MessageSchema) {
+	var foundSubscription SubscriptionSchema
+
+	id, err := primitive.ObjectIDFromHex(key)
+
+	if err != nil {
+		fmt.Println("error5")
+		fmt.Println(err)
+		fmt.Println(foundSubscription)
+	}
+
+	err = Subscription.FindOne(context.TODO(), bson.D{{"userid", id}}).Decode(&foundSubscription)
+
+	if err != nil {
+		fmt.Println("error4")
+		fmt.Println(err)
+		fmt.Println(foundSubscription)
+	}
+
+	if foundSubscription != (SubscriptionSchema{}) {
+		s := &webpush.Subscription{foundSubscription.Endpoint, foundSubscription.Keys}
+
+		marshaled, err := json.Marshal(newMessage)
+
+		res, err := webpush.SendNotification(marshaled, s, &webpush.Options{
+			TTL:             50000,
+			VAPIDPublicKey:  PushPublicKey,
+			VAPIDPrivateKey: PushPrivateKey,
+		})
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		res.Body.Close()
+	}
 }
 
 func GetMessagesRoute(c * gin.Context) {

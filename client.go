@@ -12,7 +12,7 @@ const (
 	writeWait = 10 * time.Second
 	pongWait = 60 * time.Second
 	pingPeriod = (pongWait * 9) / 10
-	maxMessageSize = 512
+	maxMessageSize = 128000000
 )
 
 var (
@@ -20,9 +20,15 @@ var (
 	space   = []byte{' '}
 )
 
+var protocols = []string{"asd"}
+
 var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  12800000,
+	WriteBufferSize: 12800000,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+	Subprotocols:protocols,
 }
 
 type Client struct {

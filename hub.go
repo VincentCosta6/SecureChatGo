@@ -32,6 +32,16 @@ type IS_TYPING struct {
 	WhoTypingUsername string
 }
 
+type OFFER struct {
+	Users []string
+	WhoID string
+	WhoUsername string
+	Call_Type string
+	Channel_ID string
+	Channel_Name string
+	SignalData interface{}
+}
+
 func newHub() *Hub {
 	return &Hub{
 		createMessage:  make(chan CreatedMessageStruct),
@@ -99,7 +109,36 @@ func handleReceive(h *Hub, message []byte) {
 		content.Users = []string{}
 
 		go (func() {
-			h.createMessage <- CreatedMessageStruct{message:&message, clients: &clientsCopy}
+			h.createMessage <- CreatedMessageStruct{message: &message, clients: &clientsCopy}
+		})()
+	case "OFFER":
+		var content OFFER
+
+		mapstructure.Decode(parsed.Content, &content)
+
+		message := WebsocketMessageType{"OFFER", &content}
+
+		clientsCopy := content.Users[:]
+
+		content.Users = []string{}
+
+		go (func() {
+			h.createMessage <- CreatedMessageStruct{message: &message, clients: &clientsCopy}
+		})()
+	case "ANSWER":
+		var content OFFER
+
+		mapstructure.Decode(parsed.Content, &content)
+
+		message := WebsocketMessageType{"ANSWER", &content}
+
+		clientsCopy := content.Users[:]
+
+		content.Users = []string{}
+
+		go (func() {
+			h.createMessage <- CreatedMessageStruct{message: &message, clients: &clientsCopy}
 		})()
 	}
+
 }

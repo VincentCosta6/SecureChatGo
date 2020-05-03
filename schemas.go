@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/SherClockHolmes/webpush-go"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
 )
@@ -23,4 +24,12 @@ type MessageSchema struct {
 	ChannelID primitive.ObjectID
 	Timestamp time.Time
 	Encrypted string
+}
+
+type SubscriptionSchema struct {
+	ID primitive.ObjectID `bson:"_id" json:"_id,omitempty"`
+	UserID primitive.ObjectID
+	Endpoint string
+	ExpirationTime string
+	Keys webpush.Keys
 }

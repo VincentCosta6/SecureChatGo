@@ -9,6 +9,14 @@ import (
 func WebSocketUpgrade(c *gin.Context) {
 	token := c.GetHeader("Authorization")
 
+	if token == "" {
+		token = c.GetHeader("Sec-Websocket-Protocol")[5:]
+	}
+
+	fmt.Println(c.Request.Header)
+
+	fmt.Println(token)
+
 	claims := &Claims{}
 
 	tokenJWT, err := jwt.ParseWithClaims(token, claims, func(token *jwt.Token) (interface{}, error) {
