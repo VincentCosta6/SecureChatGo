@@ -109,7 +109,7 @@ func AddUserRoute(c *gin.Context) {
 		return
 	}
 
-	addUser := AddUser{ChannelID:id, NewUsers:form.PrivateKeys}
+	addUser := AddUser{ChannelID:id, NewUsers:form.PrivateKeys, UserMap:form.UserMap}
 
 	go(func() {
 		message := WebsocketMessageType{"ADD_USER", addUser}
@@ -117,10 +117,6 @@ func AddUserRoute(c *gin.Context) {
 		clients := make([]string, 0)
 
 		for key := range form.PrivateKeys {
-			clients = append(clients, key)
-		}
-
-		for key := range channel.PrivateKeys {
 			clients = append(clients, key)
 		}
 

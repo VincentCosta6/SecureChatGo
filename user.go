@@ -106,7 +106,7 @@ func FindChannels(c *gin.Context) {
 			messages = append(messages, message)
 		}
 
-		completeChannels = append(completeChannels, FindChannelsType{channel.ID, channel.Name, channel.PrivateKeys, messages})
+		completeChannels = append(completeChannels, FindChannelsType{channel.ID, channel.Name, channel.PrivateKeys, channel.UserMap, messages})
 	}
 
 	c.JSON(200, gin.H{"results": completeChannels})
@@ -116,5 +116,6 @@ type FindChannelsType struct {
 	ID primitive.ObjectID `bson:"_id" json:"_id,omitempty"`
 	Name string
 	PrivateKeys map[string]string // [userID]: Channels symmetric AES key is encrypted with the select users public key
+	UserMap map[string]string
 	Messages []MessageSchema
 }
