@@ -11,11 +11,17 @@ import (
 type CreateType struct {
 	Name string
 	PrivateKeys map[string]string
+	UserMap map[string]string
 }
 
 type AddType struct {
 	ChannelID string
 	PrivateKeys map[string]string
+	UserMap map[string]string
+}
+
+type LeaveChannel struct {
+	ChannelID string
 }
 
 func CreateChannelRoute(c *gin.Context) {
@@ -33,7 +39,12 @@ func CreateChannelRoute(c *gin.Context) {
 		return
 	}
 
-	newChannel := ChannelSchema{primitive.NewObjectID(), form.Name, form.PrivateKeys}
+	if len(form.UserMap) == 0 {
+		c.JSON(400, gin.H{"message": "You must send a map of the user_ids and usernames"})
+		return
+	}
+
+	newChannel := ChannelSchema{primitive.NewObjectID(), form.Name, form.PrivateKeys, form.UserMap}
 
 	go(func() {
 		message := WebsocketMessageType{"NEW_CHANNEL", newChannel}
@@ -75,6 +86,11 @@ func AddUserRoute(c *gin.Context) {
 		return
 	}
 
+	if len(form.UserMap) == 0 {
+		c.JSON(400, gin.H{"message": "You must send a map of the user_ids and usernames"})
+		return
+	}
+
 	id, err := primitive.ObjectIDFromHex(form.ChannelID)
 
 	if err != nil {
@@ -109,13 +125,16 @@ func AddUserRoute(c *gin.Context) {
 		}
 
 		HubGlob.createMessage <- CreatedMessageStruct{message: &message, clients: &clients}
-
 	})()
 
 	converted := make(map[string]string)
 
 	for k, v := range form.PrivateKeys {
 		converted["privatekeys." + k] = v
+	}
+
+	for k, v := range form.UserMap {
+		converted["usermap." + k] = v
 	}
 
 	_, err = Channels.UpdateOne(context.TODO(), bson.D{{ "_id", id }}, bson.D{{ "$set", converted }})
@@ -127,4 +146,47 @@ func AddUserRoute(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "Users have been added"})
+}
+
+func LeaveChannelRoute(c *gin.Context) {
+	var form LeaveChannel
+
+	c.BindJSON(&form)
+
+	if form.ChannelID == "" {
+		c.JSON(400, gin.H{"message": "You must send a channel id"})
+		return
+	}
+
+	convertID, err := primitive.ObjectIDFromHex(form.ChannelID)
+
+	if err != nil {
+		c.JSON(500, gin.H{"message": "Error converting your channel id to a mongo id", "err": err})
+		return
+	}
+
+	var foundChannel ChannelSchema
+
+	err = Channels.FindOne(context.TODO(), bson.D{{"_id", convertID}}).Decode(&foundChannel)
+
+	if err != nil {
+		c.JSON(400, gin.H{ "message": "Channel does not exist" })
+		return
+	}
+
+	userContext, _ := c.Get("user")
+
+	user := userContext.(UserSchema)
+	userIDString := user.ID.String()[10:34]
+
+	fmt.Println(userIDString)
+
+	if _, ok := foundChannel.PrivateKeys[userIDString]; ok {
+		_, _ = Channels.UpdateOne(context.TODO(), bson.D{{"_id", convertID}}, bson.D{{"$unset", bson.D{{"privatekeys." + userIDString, ""}}}})
+
+		c.JSON(200, gin.H{"message": "You have left channel " + form.ChannelID})
+		return
+	}
+
+	c.JSON(400, gin.H{"message": "You are not in this channel"})
 }

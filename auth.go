@@ -116,7 +116,16 @@ func GetSessionRoute(c *gin.Context) {
 
 	user := userContext.(UserSchema)
 
-	c.JSON(200, gin.H{"user": user})
+	var foundUser UserSchema
+
+	err := Users.FindOne(context.TODO(), bson.D{{ "_id", user.ID }}).Decode(&foundUser)
+
+	if err != nil {
+		c.JSON(400, gin.H{"err": "User does not exist"})
+		return
+	}
+
+	c.JSON(200, gin.H{"user": user, "userDB": foundUser})
 }
 
 func createJWTTokenString(user UserSchema, ) (string, error) {

@@ -85,6 +85,7 @@ func initializeMainRoutes(r *gin.Engine) {
 	r.POST("/channel/create", EnsureAuth(), CreateChannelRoute)
 	r.POST("/channel/add/user", EnsureAuth(), AddUserRoute)
 	r.GET("/channels/mine", EnsureAuth(), FindChannels)
+	r.DELETE("/channel/leave", EnsureAuth(), LeaveChannelRoute)
 
 	r.POST("/message/create", EnsureAuth(), CreateMessageRoute)
 	r.GET("/channels/messages/:channelID", EnsureAuth(), GetMessagesRoute)
