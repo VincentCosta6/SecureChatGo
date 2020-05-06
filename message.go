@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/SherClockHolmes/webpush-go"
+	"github.com/oliveroneill/exponent-server-sdk-golang/sdk"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -103,9 +104,39 @@ func sendNotif(key string, newMessage MessageSchema) {
 	}
 
 	if foundSubscription != (SubscriptionSchema{}) {
-		s := &webpush.Subscription{foundSubscription.Endpoint, foundSubscription.Keys}
-
 		marshaled, err := json.Marshal(newMessage)
+
+		if foundSubscription.Type == "expo" {
+			rpushToken, err := expo.NewExponentPushToken(foundSubscription.Endpoint)
+			if err != nil {
+				panic(err)
+				return
+			}
+
+			client := expo.NewPushClient(nil)
+
+			response, err := client.Publish(
+				&expo.PushMessage{
+					To: rpushToken,
+					Body: "You received a new message",
+					Data: map[string]string{"message": string(marshaled)},
+					Sound: "default",
+					Title: "SecureChat",
+					Priority: expo.DefaultPriority,
+				},
+			)
+
+			if err != nil {
+				panic(err)
+				return
+			}
+
+			if response.ValidateResponse() != nil {
+				fmt.Println(response.PushMessage.To, "failed")
+			}
+		}
+
+		s := &webpush.Subscription{foundSubscription.Endpoint, foundSubscription.Keys}
 
 		res, err := webpush.SendNotification(marshaled, s, &webpush.Options{
 			TTL:             50000,

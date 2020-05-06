@@ -12,6 +12,7 @@ import (
 type SubscribeStruct struct {
 	Endpoint string
 	ExpirationTime string
+	Type string
 	Keys webpush.Keys
 }
 
@@ -38,22 +39,6 @@ func SubscribeRoute(c *gin.Context) {
 	fmt.Println(form.Keys.P256dh)
 
 	if foundSubscription != (SubscriptionSchema{}) {
-		go(func() {
-			s := &webpush.Subscription{form.Endpoint, form.Keys}
-
-			res, err := webpush.SendNotification([]byte("Validated subscription"), s, &webpush.Options{
-				TTL:             30,
-				VAPIDPublicKey:  PushPublicKey,
-				VAPIDPrivateKey: PushPrivateKey,
-			})
-
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			res.Body.Close()
-		})()
-
 		c.JSON(200, gin.H{ "message": "success", "subscription": foundSubscription, "active": true, "newlyCreated": false })
 		return
 	}
@@ -62,7 +47,7 @@ func SubscribeRoute(c *gin.Context) {
 
 	user := userContext.(UserSchema)
 
-	ourSubcription := SubscriptionSchema{primitive.NewObjectID(), user.ID, form.Endpoint, form.ExpirationTime, form.Keys}
+	ourSubcription := SubscriptionSchema{primitive.NewObjectID(), user.ID, form.Type, form.Endpoint, form.ExpirationTime, form.Keys}
 
 	_, err = Subscription.InsertOne(context.TODO(), ourSubcription)
 

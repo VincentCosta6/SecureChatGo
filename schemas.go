@@ -30,6 +30,7 @@ type MessageSchema struct {
 type SubscriptionSchema struct {
 	ID primitive.ObjectID `bson:"_id" json:"_id,omitempty"`
 	UserID primitive.ObjectID
+	Type string
 	Endpoint string
 	ExpirationTime string
 	Keys webpush.Keys
