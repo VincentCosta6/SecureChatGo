@@ -172,6 +172,11 @@ func LeaveChannelRoute(c *gin.Context) {
 
 	userContext, _ := c.Get("user")
 
+	if len(foundChannel.PrivateKeys) == 1 {
+		Messages.DeleteMany(context.TODO(), bson.D{{ "channelid", convertID }})
+		Channels.DeleteOne(context.TODO(), bson.D{{ "_id", convertID }})
+	}
+
 	user := userContext.(UserSchema)
 	userIDString := user.ID.String()[10:34]
 
