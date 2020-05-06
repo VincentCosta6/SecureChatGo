@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"net/http"
@@ -48,8 +47,7 @@ func EnsureAuth() gin.HandlerFunc {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Your token is invalid"})
 				return
 			}
-
-			fmt.Println("got it broger")
+			
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Bad request", "err": err})
 			return
 		}

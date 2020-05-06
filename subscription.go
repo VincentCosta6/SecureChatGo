@@ -35,9 +35,6 @@ func SubscribeRoute(c *gin.Context) {
 		fmt.Println(err)
 	}
 
-	fmt.Println(form.Keys.Auth)
-	fmt.Println(form.Keys.P256dh)
-
 	if foundSubscription != (SubscriptionSchema{}) {
 		c.JSON(200, gin.H{ "message": "success", "subscription": foundSubscription, "active": true, "newlyCreated": false })
 		return
