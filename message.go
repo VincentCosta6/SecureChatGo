@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/SherClockHolmes/webpush-go"
 	"github.com/gin-gonic/gin"
-	"github.com/oliveroneill/exponent-server-sdk-golang/sdk"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
@@ -68,7 +65,7 @@ func CreateMessageRoute(c *gin.Context) {
 
 		for key := range foundChannel.PrivateKeys {
 			clients = append(clients, key)
-			go sendNotif(key, newMessage)
+			SendNotif(key, newMessage)
 		}
 
 		HubGlob.createMessage <- CreatedMessageStruct{message:&message, clients: &clients}
@@ -82,74 +79,6 @@ func CreateMessageRoute(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"message": "Message sent successfully", "inserted": newMessage})
-}
-
-func sendNotif(key string, newMessage MessageSchema) {
-	var foundSubscription SubscriptionSchema
-
-	id, err := primitive.ObjectIDFromHex(key)
-
-	if err != nil {
-		fmt.Println("error5")
-		fmt.Println(err)
-		fmt.Println(foundSubscription)
-	}
-
-	err = Subscription.FindOne(context.TODO(), bson.D{{"userid", id}}).Decode(&foundSubscription)
-
-	if err != nil {
-		fmt.Println("error4")
-		fmt.Println(err)
-		fmt.Println(foundSubscription)
-	}
-
-	if foundSubscription != (SubscriptionSchema{}) {
-		marshaled, err := json.Marshal(newMessage)
-
-		if foundSubscription.Type == "expo" {
-			rpushToken, err := expo.NewExponentPushToken(foundSubscription.Endpoint)
-			if err != nil {
-				panic(err)
-				return
-			}
-
-			client := expo.NewPushClient(nil)
-
-			response, err := client.Publish(
-				&expo.PushMessage{
-					To: rpushToken,
-					Body: "You received a new message",
-					Data: map[string]string{"message": string(marshaled)},
-					Sound: "default",
-					Title: "SecureChat",
-					Priority: expo.DefaultPriority,
-				},
-			)
-
-			if err != nil {
-				panic(err)
-				return
-			}
-
-			if response.ValidateResponse() != nil {
-				fmt.Println(response.PushMessage.To, "failed")
-			}
-		}
-
-		s := &webpush.Subscription{foundSubscription.Endpoint, foundSubscription.Keys}
-
-		res, err := webpush.SendNotification(marshaled, s, &webpush.Options{
-			TTL:             50000,
-			VAPIDPublicKey:  PushPublicKey,
-			VAPIDPrivateKey: PushPrivateKey,
-		})
-
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		res.Body.Close()
-	}
 }
 
 func GetMessagesRoute(c * gin.Context) {
