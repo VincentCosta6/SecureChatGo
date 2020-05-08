@@ -63,9 +63,17 @@ func CreateMessageRoute(c *gin.Context) {
 
 		clients := make([]string, 0)
 
+		userContext, _ := c.Get("user")
+
+		user := userContext.(UserSchema)
+		userIDString := user.ID.String()[10:34]
+
 		for key := range foundChannel.PrivateKeys {
 			clients = append(clients, key)
-			SendNotif(key, newMessage)
+
+			if key != userIDString {
+				SendNotif(key, newMessage)
+			}
 		}
 
 		HubGlob.createMessage <- CreatedMessageStruct{message:&message, clients: &clients}
