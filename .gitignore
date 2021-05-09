@@ -4,5 +4,3 @@ SecureChat_Server.exe
 build/*
 files/*
 keys.go
-
-/vendor/*
