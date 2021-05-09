@@ -105,7 +105,8 @@ func initializeMainRoutes(r *gin.Engine) {
 
 	r.POST("/subscription", EnsureAuth(), SubscribeRoute)
 
-	r.RunTLS(":443", "./server.pem", "./server.key")
+	// r.RunTLS(":443", "./server.pem", "./server.key")
+	r.Run(":80")
 }
 
 func initializeRouter() {
