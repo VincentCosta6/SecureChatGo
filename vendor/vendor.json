@@ -1,6 +1,7 @@
 {
 	"comment": "",
 	"heroku": {
+		'root-package': 'SecureChatGo',
 		"goVersion": "go1.16",
 		"install": [
 			"./..."
