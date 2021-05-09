@@ -339,6 +339,7 @@
 			"revisionTime": "2021-05-04T22:36:28Z"
 		},
 		{
+			"checksumSHA1": "EJdHEmexbd62nsue8mZjbGzJMeg=",
 			"path": "go.mongodb.org/mongo-driver/x/mongo/driver/auth/internal/gssapi",
 			"revision": "899e5cd8638d46c9b85b90b1c5868221cb08f1aa"
 		},
@@ -625,5 +626,5 @@
 			"revisionTime": "2020-11-17T15:46:20Z"
 		}
 	],
-	"rootPath": "https://github.com/VincentCosta6/SecureChatGo"
+	"rootPath": "SecureChatGo"
 }
