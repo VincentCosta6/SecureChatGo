@@ -37,7 +37,11 @@ func setupDB() {
 			log.Fatal("Error loading .env file")
 		}
 	}
-	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_CONNECTION"))
+	credential := options.Credential{
+		Username: os.Getenv("MONGO_USERNAME"),
+		Password: os.Getenv("MONGO_PASSWORD"),
+	}
+	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_CONNECTION")).SetAuth(credential)
 
 	// Connect to MongoDB
 	client, err := mongo.Connect(context.TODO(), clientOptions)
