@@ -1,5 +1,11 @@
 {
 	"comment": "",
+	"heroku": {
+		"goVersion": "go1.16",
+		"install": [
+			"./..."
+		]
+	},
 	"ignore": "test",
 	"package": [
 		{
@@ -7,6 +13,10 @@
 			"path": "github.com/SherClockHolmes/webpush-go",
 			"revision": "d50c866a7f9710253d3494e5b4672f1b0f559b8e",
 			"revisionTime": "2021-04-30T17:25:58Z"
+		},
+		{
+			"path": "github.com/aws/aws-sdk-go/aws",
+			"revision": ""
 		},
 		{
 			"path": "github.com/aws/aws-sdk-go/aws/credentials",
@@ -615,9 +625,5 @@
 			"revisionTime": "2020-11-17T15:46:20Z"
 		}
 	],
-	"rootPath": "https://github.com/VincentCosta6/SecureChatGo",
-	"heroku": {
-		"install": ["./..."],
-		"goVersion": "go1.16"
-	}
+	"rootPath": "SecureChatGo"
 }
