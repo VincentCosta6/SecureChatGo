@@ -13,6 +13,7 @@ require (
 	github.com/goccy/go-json v0.5.1-0.20210509054412-835c00e18bfa // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gorilla/websocket v1.4.3-0.20210424162022-e8629af678b7
+	github.com/joho/godotenv v1.3.0
 	github.com/json-iterator/go v1.1.11 // indirect
 	github.com/mattn/go-isatty v0.0.13-0.20210118132834-3751eb45e68b // indirect
 	github.com/mitchellh/mapstructure v1.4.2-0.20210112220257-4664f9ee512b

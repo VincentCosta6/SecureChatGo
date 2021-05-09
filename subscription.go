@@ -9,6 +9,7 @@ import (
 	expo "github.com/oliveroneill/exponent-server-sdk-golang/sdk"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"os"
 )
 
 type SubscribeStruct struct {
@@ -136,8 +137,8 @@ func sendWebpushNotif(subscription SubscriptionSchema, marshaled []byte) {
 
 	res, err := webpush.SendNotification(marshaled, s, &webpush.Options{
 		TTL:             50000,
-		VAPIDPublicKey:  PushPublicKey,
-		VAPIDPrivateKey: PushPrivateKey,
+		VAPIDPublicKey:  os.Getenv("PushPublicKey"),
+		VAPIDPrivateKey: os.Getenv("PushPrivateKey"),
 	})
 
 	if err != nil {

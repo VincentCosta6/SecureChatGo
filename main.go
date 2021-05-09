@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -30,7 +31,11 @@ func main() {
 }
 
 func setupDB() {
-	clientOptions := options.Client().ApplyURI("mongodb://localhost:27017")
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_CONNECTION"))
 
 	// Connect to MongoDB
 	client, err := mongo.Connect(context.TODO(), clientOptions)
