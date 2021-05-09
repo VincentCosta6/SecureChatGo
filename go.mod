@@ -1,6 +1,6 @@
 module SecureChatGo
 
-// +heroku goVersion 1.16
+// +heroku goVersion 1.15
 
 go 1.16
 
