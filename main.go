@@ -31,9 +31,11 @@ func main() {
 }
 
 func setupDB() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
+	if os.Getenv("local") == "true" {
+		err := godotenv.Load()
+		if err != nil {
+			log.Fatal("Error loading .env file")
+		}
 	}
 	clientOptions := options.Client().ApplyURI(os.Getenv("MONGO_CONNECTION"))
 
