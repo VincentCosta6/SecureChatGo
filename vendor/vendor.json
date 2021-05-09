@@ -615,5 +615,9 @@
 			"revisionTime": "2020-11-17T15:46:20Z"
 		}
 	],
-	"rootPath": "SecureChatGo"
+	"rootPath": "https://github.com/VincentCosta6/SecureChatGo",
+	"heroku": {
+		"install": ["./..."],
+		"goVersion": "go1.16"
+	}
 }
