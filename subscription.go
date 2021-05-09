@@ -105,11 +105,13 @@ func sendExpoNotif(subscription SubscriptionSchema, marshaled []byte) {
 		return
 	}
 
+	rpushArr := []expo.ExponentPushToken{ rpushToken }
+
 	client := expo.NewPushClient(nil)
 
 	response, err := client.Publish(
 		&expo.PushMessage{
-			To: rpushToken,
+			To: rpushArr,
 			Body: "You received a new message",
 			Data: map[string]string{"message": string(marshaled)},
 			Sound: "default",

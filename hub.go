@@ -42,7 +42,7 @@ type OFFER struct {
 	SignalData interface{}
 }
 
-func newHub() *Hub {
+func NewHub() *Hub {
 	return &Hub{
 		createMessage:  make(chan CreatedMessageStruct),
 		receive: make(chan []byte),

@@ -21,9 +21,9 @@ var (
 )
 
 func main() {
-	if InitializeKeys() == false {
+	/*if InitializeKeys() == false {
 		log.Fatal("[Web Push] Fatal error occurred during initialization of keys")
-	}
+	}*/
 
 	setupDB()
 	initializeRouter()
@@ -54,7 +54,7 @@ func setupDB() {
 	Subscription = client.Database("GoTest").Collection("subscriptions")
 }
 
-var HubGlob = newHub()
+var HubGlob = NewHub()
 
 func initializeMiscRoutes(r *gin.Engine) {
 	pingStatus := bson.M{"msg": "healthy"}
