@@ -86,6 +86,8 @@ func initializeWebSocketRoute(r *gin.Engine) {
 }
 
 func initializeMainRoutes(r *gin.Engine) {
+	port := os.Getenv("PORT")
+
 	r.POST("/register", RegisterRoute)
 	r.POST("/login", LoginRoute)
 
@@ -106,7 +108,7 @@ func initializeMainRoutes(r *gin.Engine) {
 	r.POST("/subscription", EnsureAuth(), SubscribeRoute)
 
 	// r.RunTLS(":443", "./server.pem", "./server.key")
-	r.Run(":80")
+	r.Run(":" + port)
 }
 
 func initializeRouter() {
