@@ -15,8 +15,7 @@ type decReader interface {
 
 	readn1() byte
 	readn2() [2]byte
-	// readn3 will read 3 bytes into the top-most elements of a 4-byte array
-	readn3() [4]byte
+	readn3() [3]byte
 	readn4() [4]byte
 	readn8() [8]byte
 	// readn1eof() (v uint8, eof bool)
@@ -25,6 +24,8 @@ type decReader interface {
 	// readn(num uint8) (v [8]byte)
 
 	numread() uint // number of bytes read
+
+	// readNumber(includeLastByteRead bool) []byte
 
 	// skip any whitespace characters, and return the first non-matching byte
 	skipWhitespace() (token byte)
@@ -184,8 +185,8 @@ func (z *ioDecReader) readn2() (bs [2]byte) {
 	return
 }
 
-func (z *ioDecReader) readn3() (bs [4]byte) {
-	z.readb(bs[1:])
+func (z *ioDecReader) readn3() (bs [3]byte) {
+	z.readb(bs[:])
 	return
 }
 
@@ -422,8 +423,8 @@ func (z *bufioDecReader) readn2() (bs [2]byte) {
 	return
 }
 
-func (z *bufioDecReader) readn3() (bs [4]byte) {
-	z.readb(bs[1:])
+func (z *bufioDecReader) readn3() (bs [3]byte) {
+	z.readb(bs[:])
 	return
 }
 
@@ -609,12 +610,11 @@ func (z *bytesDecReader) readb(bs []byte) {
 	copy(bs, z.readx(uint(len(bs))))
 }
 
-// MARKER: do not use this - as it calls into memmove (as the size of data to move is unknown)
-// func (z *bytesDecReader) readnn(bs []byte, n uint) {
-// 	x := z.c
-// 	copy(bs, z.b[x:x+n])
-// 	z.c += n
-// }
+func (z *bytesDecReader) readn1() (v uint8) {
+	v = z.b[z.c]
+	z.c++
+	return
+}
 
 // func (z *bytesDecReader) readn(num uint8) (bs [8]byte) {
 // 	x := z.c + uint(num)
@@ -623,49 +623,35 @@ func (z *bytesDecReader) readb(bs []byte) {
 // 	return
 // }
 
-// func (z *bytesDecReader) readn1() uint8 {
-// 	z.c++
-// 	return z.b[z.c-1]
-// }
-
-func (z *bytesDecReader) readn1() (v uint8) {
-	v = z.b[z.c]
-	z.c++
-	return
-}
-
-// MARKER: for readn{2,3,4,8}, ensure you slice z.b completely so we get bounds error if past end.
-
 func (z *bytesDecReader) readn2() (bs [2]byte) {
-	// copy(bs[:], z.b[z.c:z.c+2])
-	bs[1] = z.b[z.c+1]
-	bs[0] = z.b[z.c]
-	z.c += 2
+	x := z.c + 2
+	copy(bs[:], z.b[z.c:x]) // slice z.b completely, so we get bounds error if past
+	z.c = x
 	return
 }
 
-func (z *bytesDecReader) readn3() (bs [4]byte) {
-	// copy(bs[1:], z.b[z.c:z.c+3])
-	bs = okBytes3(z.b[z.c : z.c+3])
-	z.c += 3
+func (z *bytesDecReader) readn3() (bs [3]byte) {
+	x := z.c + 3
+	copy(bs[:], z.b[z.c:x]) // slice z.b completely, so we get bounds error if past
+	z.c = x
 	return
 }
 
 func (z *bytesDecReader) readn4() (bs [4]byte) {
-	// copy(bs[:], z.b[z.c:z.c+4])
-	bs = okBytes4(z.b[z.c : z.c+4])
-	z.c += 4
+	x := z.c + 4
+	copy(bs[:], z.b[z.c:x]) // slice z.b completely, so we get bounds error if past
+	z.c = x
 	return
 }
 
 func (z *bytesDecReader) readn8() (bs [8]byte) {
-	// copy(bs[:], z.b[z.c:z.c+8])
-	bs = okBytes8(z.b[z.c : z.c+8])
-	z.c += 8
+	x := z.c + 8
+	copy(bs[:], z.b[z.c:x]) // slice z.b completely, so we get bounds error if past
+	z.c = x
 	return
 }
 
-func (z *bytesDecReader) jsonReadNum() []byte {
+func (z *bytesDecReader) jsonReadNum() (out []byte) {
 	z.c--
 	i := z.c
 LOOP:
@@ -673,18 +659,20 @@ LOOP:
 		i++
 		goto LOOP
 	}
-	z.c, i = i, z.c
-	return z.b[i:z.c]
+	out = z.b[z.c:i]
+	z.c = i
+	return
 }
 
-func (z *bytesDecReader) jsonReadAsisChars() []byte {
+func (z *bytesDecReader) jsonReadAsisChars() (out []byte) {
 	i := z.c
 LOOP:
 	token := z.b[i]
 	i++
 	if token == '"' || token == '\\' {
-		z.c, i = i, z.c
-		return z.b[i:z.c]
+		out = z.b[z.c:i]
+		z.c = i
+		return // z.b[c:i]
 	}
 	goto LOOP
 }
@@ -692,21 +680,31 @@ LOOP:
 func (z *bytesDecReader) skipWhitespace() (token byte) {
 	i := z.c
 LOOP:
-	token = z.b[i]
-	if isWhitespaceChar(token) {
+	if isWhitespaceChar(z.b[i]) {
 		i++
 		goto LOOP
 	}
 	z.c = i + 1
-	return
+	return z.b[i]
 }
+
+// func (z *bytesDecReader) skipWhitespace() (token byte) {
+// LOOP:
+// 	token = z.b[z.c]
+// 	z.c++
+// 	if isWhitespaceChar(token) {
+// 		goto LOOP
+// 	}
+// 	return
+// }
 
 func (z *bytesDecReader) readUntil(stop byte) (out []byte) {
 	i := z.c
 LOOP:
 	if z.b[i] == stop {
-		out = z.b[z.c:i]
-		z.c = i + 1
+		i++
+		out = z.b[z.c : i-1]
+		z.c = i
 		return
 	}
 	i++

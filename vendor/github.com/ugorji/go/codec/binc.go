@@ -5,7 +5,6 @@ package codec
 
 import (
 	"math"
-	"reflect"
 	"time"
 )
 
@@ -88,10 +87,6 @@ var (
 	}
 )
 
-func bincdescbd(bd byte) (s string) {
-	return bincdesc(bd>>4, bd&0x0f)
-}
-
 func bincdesc(vd, vs byte) (s string) {
 	if vd == bincVdSpecial {
 		s = bincdescSpecialVsNames[vs]
@@ -118,6 +113,8 @@ type bincEncDriver struct {
 	encDriverNoopContainerWriter
 	h *BincHandle
 	bincEncState
+	// b [8]byte           // scratch, used for encoding numbers - bigendian style
+	// s uint16 // symbols sequencer
 
 	e Encoder
 }
@@ -246,12 +243,12 @@ func (e *bincEncDriver) encUint(bd byte, pos bool, v uint64) {
 	}
 }
 
-func (e *bincEncDriver) EncodeExt(v interface{}, basetype reflect.Type, xtag uint64, ext Ext) {
+func (e *bincEncDriver) EncodeExt(v interface{}, xtag uint64, ext Ext) {
 	var bs0, bs []byte
 	if ext == SelfExt {
 		bs0 = e.e.blist.get(1024)
 		bs = bs0
-		e.e.sideEncode(v, basetype, &bs)
+		e.e.sideEncode(v, &bs)
 	} else {
 		bs = ext.WriteExt(v)
 	}
@@ -433,21 +430,20 @@ func (x *bincDecState) restoreState(v interface{}) { *x = v.(bincDecState) }
 
 type bincDecDriver struct {
 	decDriverNoopContainerReader
-	decDriverNoopNumberHelper
 	noBuiltInTypes
 
 	h *BincHandle
 
 	bincDecState
+
+	// b [8]byte // scratch for decoding numbers - big endian style
+	// _ [4]uint64 // padding cache-aligned
+
 	d Decoder
 }
 
 func (d *bincDecDriver) decoder() *Decoder {
 	return &d.d
-}
-
-func (d *bincDecDriver) descBd() string {
-	return sprintf("%v (%s)", d.bd, bincdescbd(d.bd))
 }
 
 func (d *bincDecDriver) readNextBd() {
@@ -535,14 +531,12 @@ func (d *bincDecDriver) decFloatPre64() (b [8]byte) {
 	return
 }
 
-func (d *bincDecDriver) decFloatVal() (f float64) {
-	switch d.vs & 0x7 {
-	case bincFlBin32:
+func (d *bincDecDriver) decFloat() (f float64) {
+	if x := d.vs & 0x7; x == bincFlBin32 {
 		f = float64(math.Float32frombits(bigen.Uint32(d.decFloatPre32())))
-	case bincFlBin64:
+	} else if x == bincFlBin64 {
 		f = math.Float64frombits(bigen.Uint64(d.decFloatPre64()))
-	default:
-		// ok = false
+	} else {
 		d.d.errorf("read float supports only float32/64 - %s %x-%x/%s", msgBadDesc, d.vd, d.vs, bincdesc(d.vd, d.vs))
 	}
 	return
@@ -555,7 +549,10 @@ func (d *bincDecDriver) decUint() (v uint64) {
 	case 1:
 		v = uint64(bigen.Uint16(d.d.decRd.readn2()))
 	case 2:
-		v = uint64(bigen.Uint32(d.d.decRd.readn3()))
+		b3 := d.d.decRd.readn3()
+		var b [4]byte
+		copy(b[1:], b3[:])
+		v = uint64(bigen.Uint32(b))
 	case 3:
 		v = uint64(bigen.Uint32(d.d.decRd.readn4()))
 	case 4, 5, 6:
@@ -600,8 +597,7 @@ func (d *bincDecDriver) uintBytes() (bs []byte) {
 	return
 }
 
-func (d *bincDecDriver) decInteger() (ui uint64, neg, ok bool) {
-	ok = true
+func (d *bincDecDriver) decCheckInteger() (ui uint64, neg bool) {
 	vd, vs := d.vd, d.vs
 	if vd == bincVdPosInt {
 		ui = d.decUint()
@@ -617,36 +613,10 @@ func (d *bincDecDriver) decInteger() (ui uint64, neg, ok bool) {
 			neg = true
 			ui = 1
 		} else {
-			ok = false
-			// d.d.errorf("integer decode has invalid special value %x-%x/%s", d.vd, d.vs, bincdesc(d.vd, d.vs))
+			d.d.errorf("integer decode has invalid special value %x-%x/%s", d.vd, d.vs, bincdesc(d.vd, d.vs))
 		}
 	} else {
-		ok = false
-		// d.d.errorf("integer can only be decoded from int/uint. d.bd: 0x%x, d.vd: 0x%x", d.bd, d.vd)
-	}
-	return
-}
-
-func (d *bincDecDriver) decFloat() (f float64, ok bool) {
-	ok = true
-	vd, vs := d.vd, d.vs
-	if vd == bincVdSpecial {
-		if vs == bincSpNan {
-			f = math.NaN()
-		} else if vs == bincSpPosInf {
-			f = math.Inf(1)
-		} else if vs == bincSpZeroFloat || vs == bincSpZero {
-
-		} else if vs == bincSpNegInf {
-			f = math.Inf(-1)
-		} else {
-			ok = false
-			// d.d.errorf("float - invalid special value %x-%x/%s", d.vd, d.vs, bincdesc(d.vd, d.vs))
-		}
-	} else if vd == bincVdFloat {
-		f = d.decFloatVal()
-	} else {
-		ok = false
+		d.d.errorf("integer can only be decoded from int/uint. d.bd: 0x%x, d.vd: 0x%x", d.bd, d.vd)
 	}
 	return
 }
@@ -655,7 +625,11 @@ func (d *bincDecDriver) DecodeInt64() (i int64) {
 	if d.advanceNil() {
 		return
 	}
-	i = decNegintPosintFloatNumberHelper{&d.d}.int64(d.decInteger())
+	ui, neg := d.decCheckInteger()
+	i = chkOvf.SignedIntV(ui)
+	if neg {
+		i = -i
+	}
 	d.bdRead = false
 	return
 }
@@ -664,7 +638,10 @@ func (d *bincDecDriver) DecodeUint64() (ui uint64) {
 	if d.advanceNil() {
 		return
 	}
-	ui = decNegintPosintFloatNumberHelper{&d.d}.uint64(d.decInteger())
+	ui, neg := d.decCheckInteger()
+	if neg {
+		d.d.errorf("assigning negative signed value to unsigned integer type")
+	}
 	d.bdRead = false
 	return
 }
@@ -673,7 +650,25 @@ func (d *bincDecDriver) DecodeFloat64() (f float64) {
 	if d.advanceNil() {
 		return
 	}
-	f = decNegintPosintFloatNumberHelper{&d.d}.float64(d.decFloat())
+	vd, vs := d.vd, d.vs
+	if vd == bincVdSpecial {
+		d.bdRead = false
+		if vs == bincSpNan {
+			return math.NaN()
+		} else if vs == bincSpPosInf {
+			return math.Inf(1)
+		} else if vs == bincSpZeroFloat || vs == bincSpZero {
+			return
+		} else if vs == bincSpNegInf {
+			return math.Inf(-1)
+		} else {
+			d.d.errorf("float - invalid special value %x-%x/%s", d.vd, d.vs, bincdesc(d.vd, d.vs))
+		}
+	} else if vd == bincVdFloat {
+		f = d.decFloat()
+	} else {
+		f = float64(d.DecodeInt64())
+	}
 	d.bdRead = false
 	return
 }
@@ -831,7 +826,7 @@ func (d *bincDecDriver) DecodeBytes(bs []byte) (bsOut []byte) {
 	return decByteSlice(d.d.r(), clen, d.d.h.MaxInitLen, bs)
 }
 
-func (d *bincDecDriver) DecodeExt(rv interface{}, basetype reflect.Type, xtag uint64, ext Ext) {
+func (d *bincDecDriver) DecodeExt(rv interface{}, xtag uint64, ext Ext) {
 	if xtag > 0xff {
 		d.d.errorf("ext: tag must be <= 0xff; got: %v", xtag)
 	}
@@ -845,7 +840,7 @@ func (d *bincDecDriver) DecodeExt(rv interface{}, basetype reflect.Type, xtag ui
 		re.Tag = realxtag
 		re.setData(xbs, zerocopy)
 	} else if ext == SelfExt {
-		d.d.sideDecode(rv, basetype, xbs)
+		d.d.sideDecode(rv, xbs)
 	} else {
 		ext.ReadExt(rv, xbs)
 	}
@@ -924,7 +919,7 @@ func (d *bincDecDriver) DecodeNaked() {
 		n.i = -(int64(d.decUint()))
 	case bincVdFloat:
 		n.v = valueTypeFloat
-		n.f = d.decFloatVal()
+		n.f = d.decFloat()
 	case bincVdString:
 		n.v = valueTypeString
 		n.s = d.d.stringZC(d.DecodeStringAsBytes())

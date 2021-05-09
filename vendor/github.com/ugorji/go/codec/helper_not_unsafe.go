@@ -34,20 +34,13 @@ func byteSliceSameData(v1 []byte, v2 []byte) bool {
 	return cap(v1) != 0 && cap(v2) != 0 && &(v1[:1][0]) == &(v2[:1][0])
 }
 
-func okBytes3(b []byte) (v [4]byte) {
-	copy(v[1:], b)
-	return
-}
+// func (x *BasicHandle) fnloadFastpathUnderlying(ti *typeInfo) (f *fastpathE, u reflect.Type) {
+// 	return fnloadFastpathUnderlying(ti)
+// }
 
-func okBytes4(b []byte) (v [4]byte) {
-	copy(v[:], b)
-	return
-}
-
-func okBytes8(b []byte) (v [8]byte) {
-	copy(v[:], b)
-	return
-}
+// func copyBytes(dst []byte, src []byte) {
+// 	copy(dst, src)
+// }
 
 func isNil(v interface{}) (rv reflect.Value, isnil bool) {
 	rv = reflect.ValueOf(v)
@@ -56,6 +49,10 @@ func isNil(v interface{}) (rv reflect.Value, isnil bool) {
 	}
 	return
 }
+
+// func rvAddr(rv reflect.Value) uintptr {
+// 	return rv.UnsafeAddr()
+// }
 
 func eq4i(i0, i1 interface{}) bool {
 	return i0 == i1
@@ -69,10 +66,6 @@ func rv4istr(i interface{}) reflect.Value { return reflect.ValueOf(i) }
 
 func rv2i(rv reflect.Value) interface{} {
 	return rv.Interface()
-}
-
-func rvAddr(rv reflect.Value, ptrType reflect.Type) reflect.Value {
-	return rv.Addr()
 }
 
 func rvIsNil(rv reflect.Value) bool {
@@ -182,7 +175,7 @@ func isEmptyStruct(v reflect.Value, tinfos *TypeInfos, recursive bool) bool {
 	}
 	// We only care about what we can encode/decode,
 	// so that is what we use to check omitEmpty.
-	for _, si := range ti.sfi.source() {
+	for _, si := range ti.sfiSrc {
 		sfv := si.path.field(v)
 		if sfv.IsValid() && !isEmptyValue(sfv, tinfos, recursive) {
 			return false
@@ -264,19 +257,6 @@ func (x *perType) AddressableRO(v reflect.Value) (rv reflect.Value) {
 }
 
 // --------------------------
-type structFieldInfos struct {
-	c []*structFieldInfo
-	s []*structFieldInfo
-}
-
-func (x *structFieldInfos) load(source, sorted []*structFieldInfo) {
-	x.c = source
-	x.s = sorted
-}
-
-func (x *structFieldInfos) sorted() (v []*structFieldInfo) { return x.s }
-func (x *structFieldInfos) source() (v []*structFieldInfo) { return x.c }
-
 type atomicClsErr struct {
 	v atomic.Value
 }
@@ -434,11 +414,7 @@ func rvSetDirectZero(rv reflect.Value) {
 	rv.Set(reflect.Zero(rv.Type()))
 }
 
-// func rvSet(rv reflect.Value, v reflect.Value) {
-// 	rv.Set(v)
-// }
-
-func rvSetIntf(rv reflect.Value, v reflect.Value) {
+func rvSet(rv reflect.Value, v reflect.Value) {
 	rv.Set(v)
 }
 
@@ -458,8 +434,8 @@ func rvMakeSlice(rv reflect.Value, ti *typeInfo, xlen, xcap int) (v reflect.Valu
 	return
 }
 
-func rvGrowSlice(rv reflect.Value, ti *typeInfo, cap, incr int) (v reflect.Value, newcap int, set bool) {
-	newcap = int(growCap(uint(cap), uint(ti.elemsize), uint(incr)))
+func rvGrowSlice(rv reflect.Value, ti *typeInfo, xcap, incr int) (v reflect.Value, newcap int, set bool) {
+	newcap = int(growCap(uint(xcap), uint(ti.elemsize), uint(incr)))
 	v = reflect.MakeSlice(ti.rt, newcap, newcap)
 	if rv.Len() > 0 {
 		reflect.Copy(v, rv)
@@ -619,13 +595,11 @@ func rvLenMap(rv reflect.Value) int {
 
 // ------------ map range and map indexing ----------
 
-func mapStoresElemIndirect(elemsize uintptr) bool { return false }
-
-func mapSet(m, k, v reflect.Value, keyFastKind mapKeyFastKind, _, _ bool) {
+func mapSet(m, k, v reflect.Value, keyFastKind mapKeyFastKind, valIsIndirect, valIsRef bool) {
 	m.SetMapIndex(k, v)
 }
 
-func mapGet(m, k, v reflect.Value, keyFastKind mapKeyFastKind, _, _ bool) (vv reflect.Value) {
+func mapGet(m, k, v reflect.Value, keyFastKind mapKeyFastKind, valIsIndirect, valIsRef bool) (vv reflect.Value) {
 	return m.MapIndex(k)
 }
 
@@ -668,3 +642,44 @@ func (n *structFieldInfoPathNode) rvField(v reflect.Value) reflect.Value {
 }
 
 // ---------- others ---------------
+
+/*
+func hashShortString(b []byte) (h uintptr) {
+	// MARKER: consider fnv - it may be a better hash than adler
+	return uintptr(adler32.Checksum(b))
+}
+
+// func hashShortString(b []byte) (h uint64) {
+// 	// culled from https://github.com/golang/go/issues/32779#issuecomment-735494578
+// 	// Read the string in two parts using wide-integer loads.
+// 	// The prefix and suffix may overlap, which is fine.
+// 	switch {
+// 	case len(b) > 8:
+// 		h ^= binary.LittleEndian.Uint64(b[:8])
+// 		h *= 0x00000100000001B3 // inspired by FNV-64
+// 		h ^= binary.LittleEndian.Uint64(b[len(b)-8:])
+// 	case len(b) > 4:
+// 		h ^= uint64(binary.LittleEndian.Uint32(b[:4]))
+// 		h *= 0x01000193 // inspired by FNV-32
+// 		h ^= uint64(binary.LittleEndian.Uint32(b[len(b)-4:]))
+// 	default:
+// 		h ^= uint64(binary.LittleEndian.Uint16(b[:2]))
+// 		h *= 0x010f // inspired by hypothetical FNV-16
+// 		h ^= uint64(binary.LittleEndian.Uint16(b[len(b)-2:]))
+// 	}
+//
+// 	// Collapse a 64-bit, 32-bit, or 16-bit hash into an 8-bit hash.
+// 	h ^= h >> 32
+// 	h ^= h >> 16
+// 	h ^= h >> 8
+//
+// 	// The cache has 8 buckets based on the lower 3-bits of the length.
+// 	h = ((h << 3) | uint64(len(b)&7))
+// 	return
+// }
+
+func rtsize(rt reflect.Type) uintptr {
+	return rt.Size()
+}
+
+*/
